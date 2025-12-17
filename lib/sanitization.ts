@@ -6,7 +6,7 @@ import createDOMPurify from 'dompurify'
  */
 const purify = (() => {
     if (typeof window !== 'undefined') {
-        return createDOMPurify(window)
+        return createDOMPurify(window as any)
     }
     // Server-side initialization
     const { JSDOM } = require('jsdom')
