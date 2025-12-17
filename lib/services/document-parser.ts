@@ -2,7 +2,7 @@
  * Document Parser Service
  * 
  * Handles DOCX to semantic HTML conversion with proper sanitization.
- * Uses mammoth for conversion and isomorphic-dompurify for sanitization.
+ * Uses mammoth for conversion and dompurify for sanitization.
  */
 
 import type { DocumentContent, ParseOptions, DocumentMetadata } from '@/lib/types'

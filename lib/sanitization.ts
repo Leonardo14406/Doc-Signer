@@ -1,4 +1,18 @@
-import DOMPurify from 'isomorphic-dompurify'
+import createDOMPurify from 'dompurify'
+
+/**
+ * Initialize DOMPurify for both client and server environments.
+ * jsdom@22 is used on the server for CommonJS compatibility.
+ */
+const purify = (() => {
+    if (typeof window !== 'undefined') {
+        return createDOMPurify(window)
+    }
+    // Server-side initialization
+    const { JSDOM } = require('jsdom')
+    const dom = new JSDOM('')
+    return createDOMPurify(dom.window as any)
+})()
 
 /**
  * Strict HTML Schema Definition
@@ -81,7 +95,7 @@ export function sanitizeHtml(html: string, options: SanitizeOptions = {}): strin
     }
 
     // Clear existing hooks to prevent duplicates/side-effects
-    DOMPurify.removeAllHooks()
+    purify.removeAllHooks()
 
     const config = {
         ALLOWED_TAGS: ALLOWED_TAGS,
@@ -92,11 +106,11 @@ export function sanitizeHtml(html: string, options: SanitizeOptions = {}): strin
         WHOLE_DOCUMENT: false,
     }
 
-    const sanitized = DOMPurify.sanitize(html, config)
+    const sanitized = purify.sanitize(html, config)
 
     // Check for removed elements/attributes
-    if (DOMPurify.removed) {
-        DOMPurify.removed.forEach((item: any) => {
+    if ((purify as any).removed) {
+        ; (purify as any).removed.forEach((item: any) => {
             if (item.element) {
                 // If it's the element itself that was removed
                 if (!item.attribute) {
@@ -109,7 +123,7 @@ export function sanitizeHtml(html: string, options: SanitizeOptions = {}): strin
         })
     }
 
-    DOMPurify.removeAllHooks()
+    purify.removeAllHooks()
 
     if (strict && strippedContent) {
         throw new Error('Document failed strict validation: content was stripped.')
