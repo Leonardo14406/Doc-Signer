@@ -100,9 +100,9 @@ describe('DocumentParserService', () => {
     // ==========================================================================
 
     describe('sanitizeHtml', () => {
-        it('should remove script tags', () => {
+        it('should remove script tags', async () => {
             const html = '<p>Hello</p><script>alert("xss")</script><p>World</p>'
-            const sanitized = parser.sanitizeHtml(html)
+            const sanitized = await parser.sanitizeHtml(html)
 
             expect(sanitized).not.toContain('<script>')
             expect(sanitized).not.toContain('alert')
@@ -110,44 +110,44 @@ describe('DocumentParserService', () => {
             expect(sanitized).toContain('World')
         })
 
-        it('should remove style tags', () => {
+        it('should remove style tags', async () => {
             const html = '<p>Hello</p><style>.danger { color: red; }</style>'
-            const sanitized = parser.sanitizeHtml(html)
+            const sanitized = await parser.sanitizeHtml(html)
 
             expect(sanitized).not.toContain('<style>')
             expect(sanitized).not.toContain('.danger')
         })
 
-        it('should remove onclick handlers', () => {
+        it('should remove onclick handlers', async () => {
             const html = '<p onclick="alert(1)">Click me</p>'
-            const sanitized = parser.sanitizeHtml(html)
+            const sanitized = await parser.sanitizeHtml(html)
 
             expect(sanitized).not.toContain('onclick')
             expect(sanitized).toContain('Click me')
         })
 
-        it('should remove onerror handlers', () => {
+        it('should remove onerror handlers', async () => {
             const html = '<img src="x" onerror="alert(1)">'
-            const sanitized = parser.sanitizeHtml(html)
+            const sanitized = await parser.sanitizeHtml(html)
 
             expect(sanitized).not.toContain('onerror')
         })
 
-        it('should remove javascript: URLs', () => {
+        it('should remove javascript: URLs', async () => {
             const html = '<a href="javascript:alert(1)">Click</a>'
-            const sanitized = parser.sanitizeHtml(html)
+            const sanitized = await parser.sanitizeHtml(html)
 
             expect(sanitized).not.toContain('javascript:')
         })
 
-        it('should remove inline styles', () => {
+        it('should remove inline styles', async () => {
             const html = '<p style="color: red; background: url(javascript:alert(1))">Text</p>'
-            const sanitized = parser.sanitizeHtml(html)
+            const sanitized = await parser.sanitizeHtml(html)
 
             expect(sanitized).not.toContain('style=')
         })
 
-        it('should preserve semantic HTML elements', () => {
+        it('should preserve semantic HTML elements', async () => {
             const html = `
         <h1>Heading</h1>
         <p>Paragraph</p>
@@ -156,7 +156,7 @@ describe('DocumentParserService', () => {
         <strong>Bold</strong>
         <em>Italic</em>
       `
-            const sanitized = parser.sanitizeHtml(html)
+            const sanitized = await parser.sanitizeHtml(html)
 
             expect(sanitized).toContain('<h1>')
             expect(sanitized).toContain('<p>')
@@ -167,25 +167,25 @@ describe('DocumentParserService', () => {
             expect(sanitized).toContain('<em>')
         })
 
-        it('should remove iframe and object tags', () => {
+        it('should remove iframe and object tags', async () => {
             const html = '<iframe src="evil.com"></iframe><object data="malware.swf"></object>'
-            const sanitized = parser.sanitizeHtml(html)
+            const sanitized = await parser.sanitizeHtml(html)
 
             expect(sanitized).not.toContain('<iframe')
             expect(sanitized).not.toContain('<object')
         })
 
-        it('should remove form elements', () => {
+        it('should remove form elements', async () => {
             const html = '<form action="/steal"><input type="password"></form>'
-            const sanitized = parser.sanitizeHtml(html)
+            const sanitized = await parser.sanitizeHtml(html)
 
             expect(sanitized).not.toContain('<form')
             expect(sanitized).not.toContain('<input')
         })
 
-        it('should remove empty paragraphs', () => {
+        it('should remove empty paragraphs', async () => {
             const html = '<p></p><p>   </p><p>Content</p>'
-            const sanitized = parser.sanitizeHtml(html)
+            const sanitized = await parser.sanitizeHtml(html)
 
             // Empty paragraphs should be removed
             const emptyPCount = (sanitized.match(/<p>\s*<\/p>/g) || []).length

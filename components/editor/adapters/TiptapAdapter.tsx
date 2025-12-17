@@ -130,10 +130,10 @@ export function TiptapAdapter({ initialContent = '', onChange }: TiptapAdapterPr
                     clearTimeout(saveTimeoutRef.current)
                 }
 
-                saveTimeoutRef.current = setTimeout(() => {
+                saveTimeoutRef.current = setTimeout(async () => {
                     const rawHtml = editor.getHTML()
                     // Strict sanitization before saving
-                    const cleanHtml = sanitizeHtml(rawHtml, {
+                    const cleanHtml = await sanitizeHtml(rawHtml, {
                         onSanitization: (msg) => console.warn(`[Editor] ${msg}`)
                     })
                     onChange(cleanHtml)

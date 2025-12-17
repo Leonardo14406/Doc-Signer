@@ -14,8 +14,8 @@ import { sanitizeHtml as strictSanitizeHtml, normalizeHtml as strictNormalizeHtm
  * 
  * Note: For production use, consider a proper sanitizer like DOMPurify
  */
-export function sanitizeHtml(html: string): string {
-  return strictSanitizeHtml(html)
+export async function sanitizeHtml(html: string): Promise<string> {
+  return await strictSanitizeHtml(html)
 }
 
 /**

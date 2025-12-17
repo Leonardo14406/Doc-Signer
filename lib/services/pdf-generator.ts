@@ -151,7 +151,7 @@ export function createPdfGenerator(): PdfGeneratorService {
                 // Sanitize HTML before rendering
                 // This protects against XSS/injection if the input comes from an untrusted source (e.g. client editor)
                 const { sanitizeHtml } = await import('@/lib/sanitization')
-                const safeHtml = sanitizeHtml(html)
+                const safeHtml = await sanitizeHtml(html)
 
                 const validHtml = buildHtmlDocument(safeHtml)
 

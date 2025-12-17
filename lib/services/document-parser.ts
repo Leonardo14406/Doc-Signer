@@ -109,7 +109,7 @@ export interface DocumentParserService {
     /**
      * Sanitize HTML content
      */
-    sanitizeHtml(html: string): string
+    sanitizeHtml(html: string): Promise<string>
 }
 
 // =============================================================================
@@ -157,8 +157,8 @@ export function createDocumentParser(): DocumentParserService {
             return null
         },
 
-        sanitizeHtml(html: string): string {
-            return sanitizeHtml(html, {
+        async sanitizeHtml(html: string): Promise<string> {
+            return await sanitizeHtml(html, {
                 onSanitization: (msg) => console.warn(`[DocumentParser] ${msg}`)
             })
         },
@@ -227,7 +227,7 @@ export function createDocumentParser(): DocumentParserService {
                 }
 
                 // Sanitize the HTML immediately
-                const sanitizedHtml = this.sanitizeHtml(result.value)
+                const sanitizedHtml = await this.sanitizeHtml(result.value)
 
                 // Build metadata
                 const metadata: DocumentMetadata = {

@@ -2,17 +2,33 @@ import createDOMPurify from 'dompurify'
 
 /**
  * Initialize DOMPurify for both client and server environments.
- * jsdom@22 is used on the server for CommonJS compatibility.
+ * Uses dynamic import for jsdom on the server to support ESM-only versions (27+).
  */
-const purify = (() => {
+let _purify: any = null
+
+/**
+ * Get the initialized DOMPurify instance.
+ * Supports lazy loading and handles ESM jsdom on the server.
+ */
+async function getPurify() {
+    if (_purify) return _purify
+
     if (typeof window !== 'undefined') {
-        return createDOMPurify(window as any)
+        _purify = createDOMPurify(window as any)
+        return _purify
     }
-    // Server-side initialization
-    const { JSDOM } = require('jsdom')
-    const dom = new JSDOM('')
-    return createDOMPurify(dom.window as any)
-})()
+
+    // Server-side initialization with dynamic import for ESM compatibility
+    try {
+        const { JSDOM } = await import('jsdom')
+        const dom = new JSDOM('')
+        _purify = createDOMPurify(dom.window as any)
+        return _purify
+    } catch (error) {
+        console.error('Failed to load jsdom for server-side sanitization:', error)
+        throw new Error('Server-side sanitization failed: jsdom could not be loaded.')
+    }
+}
 
 /**
  * Strict HTML Schema Definition
@@ -85,7 +101,8 @@ export interface SanitizeOptions {
 /**
  * Sanitize HTML content using DOMPurify with strict schema.
  */
-export function sanitizeHtml(html: string, options: SanitizeOptions = {}): string {
+export async function sanitizeHtml(html: string, options: SanitizeOptions = {}): Promise<string> {
+    const purify = await getPurify()
     const { strict = false, onSanitization } = options
     let strippedContent = false
     const log = (msg: string) => {
@@ -158,14 +175,14 @@ export function normalizeHtml(html: string): string {
  * Validate HTML against schema without sanitizing (dry run).
  * Returns validity and list of violations.
  */
-export function validateHtml(html: string): { valid: boolean; violations: string[] } {
+export async function validateHtml(html: string): Promise<{ valid: boolean; violations: string[] }> {
     const violations: string[] = []
 
     // We basically run sanitize with a logger that records violations
     // Note: This is an expensive check as it re-runs sanitization.
     // If strict performance is needed, we could optimize.
 
-    sanitizeHtml(html, {
+    await sanitizeHtml(html, {
         onSanitization: (msg) => violations.push(msg),
     })
 
