@@ -1,5 +1,12 @@
 "use client"
 
+/**
+ * Home Page
+ * 
+ * Main document signing workflow with step-based navigation.
+ * Uses components that delegate to hooks - no business logic here.
+ */
+
 import { useState } from "react"
 import { Upload, Pen, Download, Check, Edit3 } from "lucide-react"
 import FileUpload from "@/components/file-upload"
@@ -8,21 +15,36 @@ import DownloadStep from "@/components/download-step"
 import DocumentEditor from "@/components/document-editor"
 import { Button } from "@/components/ui/button"
 
+// =============================================================================
+// Types
+// =============================================================================
+
 type Step = "upload" | "edit" | "sign" | "download"
 
+// =============================================================================
+// Component
+// =============================================================================
+
 export default function Home() {
+  // Workflow state
   const [currentStep, setCurrentStep] = useState<Step>("upload")
   const [file, setFile] = useState<File | null>(null)
   const [htmlContent, setHtmlContent] = useState<string | null>(null)
-  const [pdfBytes, setPdfBytes] = useState<Uint8Array | null>(null)
-  const [signedPdfBytes, setSignedPdfBytes] = useState<Uint8Array | null>(null)
+  const [pdfId, setPdfId] = useState<string | null>(null)
+  const [signedPdfId, setSignedPdfId] = useState<string | null>(null)
 
-  const steps = [
+  // Step configuration
+  // Step configuration
+  const steps: { id: Step; label: string; icon: any }[] = [
     { id: "upload", label: "Upload", icon: Upload },
     { id: "edit", label: "Edit", icon: Edit3 },
     { id: "sign", label: "Sign", icon: Pen },
     { id: "download", label: "Download", icon: Download },
   ]
+
+  // =========================================================================
+  // Step Handlers
+  // =========================================================================
 
   const handleFileUploaded = (uploadedFile: File, html: string) => {
     setFile(uploadedFile)
@@ -30,23 +52,42 @@ export default function Home() {
     setCurrentStep("edit")
   }
 
-  const handleEditorContinue = (generatedPdf: Uint8Array) => {
-    setPdfBytes(generatedPdf)
+  const handleEditorContinue = (generatedPdfId: string) => {
+    setPdfId(generatedPdfId)
     setCurrentStep("sign")
   }
 
-  const handleSignatureComplete = (signedPdf: Uint8Array) => {
-    setSignedPdfBytes(signedPdf)
+  const handleSignatureComplete = (signedId: string) => {
+    setSignedPdfId(signedId)
     setCurrentStep("download")
   }
 
   const handleStartOver = () => {
     setFile(null)
     setHtmlContent(null)
-    setPdfBytes(null)
-    setSignedPdfBytes(null)
+    setPdfId(null)
+    setSignedPdfId(null)
     setCurrentStep("upload")
   }
+
+  const handleStepClick = (stepId: Step) => {
+    // Determine the index of the clicked step and current step
+    const stepIndex = steps.findIndex((s) => s.id === stepId)
+    const currentIndex = steps.findIndex((s) => s.id === currentStep)
+
+    // Only allow navigation if we are clicking a previous step
+    if (stepIndex < currentIndex) {
+      if (stepId === "upload") {
+        handleStartOver()
+      } else {
+        setCurrentStep(stepId)
+      }
+    }
+  }
+
+  // =========================================================================
+  // Render
+  // =========================================================================
 
   return (
     <div className="min-h-screen flex flex-col bg-background font-sans">
@@ -59,22 +100,10 @@ export default function Home() {
             </div>
             <span>SignFlow</span>
           </div>
-          <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-muted-foreground">
-            <a href="#" className="hover:text-foreground transition-colors">Features</a>
-            <a href="#" className="hover:text-foreground transition-colors">Pricing</a>
-            <a href="#" className="hover:text-foreground transition-colors">About</a>
-          </nav>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm">Log in</Button>
-            <Button size="sm">Get Started</Button>
-          </div>
         </div>
       </header>
 
       <main className="flex-1 flex flex-col">
-        {/* Hero Section (Only show on upload step or if we want it persistent) */}
-        {/* We'll keep it persistent but smaller when not in upload? No, let's keep it simple. */}
-
         <div className="flex-1 container mx-auto px-4 py-8 max-w-6xl flex flex-col">
           {/* Step Wizard */}
           <div className="mb-12 mt-8">
@@ -83,11 +112,17 @@ export default function Home() {
                 const Icon = step.icon
                 const isActive = currentStep === step.id
                 const isCompleted = steps.findIndex((s) => s.id === currentStep) > index
-                const isFuture = !isActive && !isCompleted
+                const isClickable = isCompleted
 
                 return (
-                  <div key={step.id} className="flex items-center min-w-fit">
-                    <div className="flex flex-col items-center gap-2">
+                  <div
+                    key={step.id}
+                    className="flex items-center min-w-fit"
+                  >
+                    <div
+                      className={`flex flex-col items-center gap-2 ${isClickable ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}`}
+                      onClick={() => isClickable && handleStepClick(step.id)}
+                    >
                       <div
                         className={`w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center transition-all duration-300 ${isActive
                           ? "bg-primary text-primary-foreground scale-110 shadow-xl shadow-primary/20"
@@ -96,10 +131,17 @@ export default function Home() {
                             : "bg-muted text-muted-foreground"
                           }`}
                       >
-                        {isCompleted ? <Check className="w-5 h-5 md:w-6 md:h-6" /> : <Icon className="w-5 h-5 md:w-6 md:h-6" />}
+                        {isCompleted
+                          ? <Check className="w-5 h-5 md:w-6 md:h-6" />
+                          : <Icon className="w-5 h-5 md:w-6 md:h-6" />
+                        }
                       </div>
                       <span
-                        className={`text-xs md:text-sm font-medium transition-colors ${isActive ? "text-foreground" : isCompleted ? "text-foreground/80" : "text-muted-foreground"
+                        className={`text-xs md:text-sm font-medium transition-colors ${isActive
+                          ? "text-foreground"
+                          : isCompleted
+                            ? "text-foreground/80"
+                            : "text-muted-foreground"
                           }`}
                       >
                         {step.label}
@@ -147,15 +189,16 @@ export default function Home() {
               </div>
             )}
 
-
-
-            {currentStep === "sign" && pdfBytes && (
-              <SignaturePad pdfBytes={pdfBytes} onSignatureComplete={handleSignatureComplete} />
+            {currentStep === "sign" && pdfId && (
+              <SignaturePad
+                pdfId={pdfId}
+                onSignatureComplete={handleSignatureComplete}
+              />
             )}
 
-            {currentStep === "download" && signedPdfBytes && (
+            {currentStep === "download" && signedPdfId && (
               <DownloadStep
-                signedPdfBytes={signedPdfBytes}
+                signedPdfId={signedPdfId}
                 fileName={file?.name || "document"}
                 onStartOver={handleStartOver}
               />

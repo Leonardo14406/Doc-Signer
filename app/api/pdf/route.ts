@@ -34,7 +34,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<GenerateP
         }
 
         // NOTE: Server-side PDF generation would require:
-        // - Puppeteer or Playwright for headless browser rendering
+        // - Playwright for headless browser rendering
         // - Or a library like Pdfkit for programmatic PDF creation
 
         // For now, we delegate to client-side processing

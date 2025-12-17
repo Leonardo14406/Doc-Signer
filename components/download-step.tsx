@@ -1,26 +1,43 @@
 "use client"
 
+/**
+ * Download Step Component
+ * 
+ * Final step showing success message and download button.
+ * Uses the download API to fetch the signed PDF.
+ */
+
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Download, RotateCcw, CheckCircle2 } from "lucide-react"
 
+// =============================================================================
+// Types
+// =============================================================================
+
 interface DownloadStepProps {
-  signedPdfBytes: Uint8Array
+  signedPdfId: string
   fileName: string
   onStartOver: () => void
 }
 
-export default function DownloadStep({ signedPdfBytes, fileName, onStartOver }: DownloadStepProps) {
+// =============================================================================
+// Component
+// =============================================================================
+
+export default function DownloadStep({ signedPdfId, fileName, onStartOver }: DownloadStepProps) {
   const handleDownload = () => {
-    const blob = new Blob([signedPdfBytes], { type: "application/pdf" })
-    const url = URL.createObjectURL(blob)
+    // Use the download API with the signed PDF ID
+    const downloadFileName = fileName.replace(".docx", "_signed.pdf")
+    const downloadUrl = `/api/download/${signedPdfId}?filename=${encodeURIComponent(downloadFileName)}`
+
+    // Trigger download
     const link = document.createElement("a")
-    link.href = url
-    link.download = fileName.replace(".docx", "_signed.pdf")
+    link.href = downloadUrl
+    link.download = downloadFileName
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
-    URL.revokeObjectURL(url)
   }
 
   return (
@@ -50,7 +67,7 @@ export default function DownloadStep({ signedPdfBytes, fileName, onStartOver }: 
       <div className="mt-8 p-4 bg-muted/50 rounded-lg">
         <h3 className="font-medium mb-2 text-center">Security Notice</h3>
         <p className="text-sm text-muted-foreground text-center">
-          Your document was processed entirely in your browser. No data was sent to any server.
+          Your document is securely processed on our servers and automatically deleted after download.
         </p>
       </div>
     </Card>

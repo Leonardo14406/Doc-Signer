@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { readFile } from '@/lib/storage'
-import path from 'path'
+import { getFilePath } from '@/lib/storage'
+import { createReadStream } from 'fs'
+import { stat } from 'fs/promises'
 
 export async function GET(
     request: NextRequest,
@@ -17,13 +18,25 @@ export async function GET(
         }
 
         try {
-            const fileBuffer = await readFile(id)
+            const filePath = getFilePath(id)
 
-            return new NextResponse(new Blob([new Uint8Array(fileBuffer)]), {
+            // Check if file exists and get stats
+            const stats = await stat(filePath)
+
+            if (!stats.isFile()) {
+                return new NextResponse('File not found', { status: 404 })
+            }
+
+            // Create a read stream
+            const fileStream = createReadStream(filePath)
+
+            // Return stream response
+            // @ts-ignore: NextResponse supports Node streams but types might conflict
+            return new NextResponse(fileStream, {
                 headers: {
                     'Content-Type': 'application/pdf',
                     'Content-Disposition': `attachment; filename="${filename}"`,
-                    'Content-Length': fileBuffer.length.toString(),
+                    'Content-Length': stats.size.toString(),
                 },
             })
         } catch (err) {

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { ArrowRight, ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from "lucide-react"
 import { Spinner } from "@/components/ui/spinner"
+import DocumentScaler from "@/components/ui/document-scaler"
 
 interface DocumentPreviewProps {
   pdfBytes: Uint8Array
@@ -114,14 +115,16 @@ export default function DocumentPreview({ pdfBytes, fileName, onContinue }: Docu
       </div>
 
       {/* Document Area - Full Width Like Editor */}
-      <div className="flex-1 overflow-auto bg-gray-100 dark:bg-gray-900/50 flex justify-center p-8">
+      <div className="flex-1 overflow-auto bg-gray-100 dark:bg-gray-900/50 flex justify-center p-4 md:p-8">
         {isLoading ? (
           <div className="flex flex-col items-center gap-4 py-12">
             <Spinner className="w-12 h-12" />
             <p className="text-muted-foreground">Rendering PDF...</p>
           </div>
         ) : (
-          <canvas ref={canvasRef} className="shadow-lg bg-white" />
+          <DocumentScaler targetWidth={canvasRef.current?.width || 794}>
+            <canvas ref={canvasRef} className="shadow-lg bg-white" />
+          </DocumentScaler>
         )}
       </div>
 

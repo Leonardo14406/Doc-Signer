@@ -37,8 +37,8 @@ const SEMANTIC_STYLE_MAP = [
     "p[style-name='Heading 5'] => h5:fresh",
     "p[style-name='Heading 6'] => h6:fresh",
 
-    // Lists - map to semantic list elements
-    "p[style-name='List Paragraph'] => li:fresh",
+    // Lists - Mammoth handles numbering/bullets automatically
+    // We avoid mapping simple 'List Paragraph' style to li to prevent invalid loose li tags
 
     // Tables are handled automatically by mammoth
 
@@ -196,13 +196,16 @@ export function createDocumentParser(): DocumentParserService {
                 ]
 
                 // Convert DOCX to HTML
+                // Ensure we use a Node Buffer for stability in server environment
+                const buffer = Buffer.from(file)
+
                 const result = await mammoth.convertToHtml(
-                    { arrayBuffer: file },
+                    { buffer },
                     {
                         styleMap,
                         // Convert images to inline base64
-                        convertImage: mammoth.images.inline((element) => {
-                            return element.read('base64').then((imageBuffer) => {
+                        convertImage: (mammoth as any).images.inline((element: any) => {
+                            return element.read('base64').then((imageBuffer: string) => {
                                 const contentType = element.contentType || 'image/png'
                                 return {
                                     src: `data:${contentType};base64,${imageBuffer}`,
@@ -247,6 +250,8 @@ export function createDocumentParser(): DocumentParserService {
 
                 return { success: true, data: documentContent }
             } catch (error) {
+                console.error('Mammoth Parse Error:', error)
+
                 // Handle specific mammoth errors
                 if (error instanceof Error) {
                     if (error.message.includes('Could not find file')) {
