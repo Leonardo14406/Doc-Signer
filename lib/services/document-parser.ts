@@ -2,7 +2,7 @@
  * Document Parser Service
  * 
  * Handles DOCX to semantic HTML conversion with proper sanitization.
- * Uses mammoth for conversion and isomorphic-dompurify for sanitization.
+ * Uses mammoth for conversion and sanitize-html for sanitization.
  */
 
 import type { DocumentContent, ParseOptions, DocumentMetadata } from '@/lib/types'
@@ -53,6 +53,7 @@ const SEMANTIC_STYLE_MAP = [
     // Page breaks - mark with semantic class
     "br[type='page'] => hr.page-break:fresh",
 ] as const
+
 // =============================================================================
 // Result Types
 // =============================================================================
@@ -200,10 +201,10 @@ export function createDocumentParser(): DocumentParserService {
                     { arrayBuffer: file },
                     {
                         styleMap,
-                        // Convert images to inline base64
-                        convertImage: mammoth.images.inline((element) => {
-                            return element.read('base64').then((imageBuffer) => {
-                                const contentType = element.contentType || 'image/png'
+                        // Convert images to inline base64 with explicit typing and safe casting
+                        convertImage: (mammoth as any).images.inline((element: any) => {
+                            return (element as any).read('base64').then((imageBuffer: string) => {
+                                const contentType = (element as any).contentType || 'image/png'
                                 return {
                                     src: `data:${contentType};base64,${imageBuffer}`,
                                 }

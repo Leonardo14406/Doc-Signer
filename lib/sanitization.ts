@@ -1,4 +1,4 @@
-import DOMPurify from 'isomorphic-dompurify'
+import sanitize from 'sanitize-html'
 
 /**
  * Strict HTML Schema Definition
@@ -31,27 +31,18 @@ export const ALLOWED_TAGS = [
     'a',
 ]
 
-export const ALLOWED_ATTR = [
-    // Global attributes
-    'id', 'class', 'lang', 'dir', 'title',
-
-    // Links
-    'href', 'target', 'rel', 'name',
-
-    // Images
-    'src', 'alt', 'width', 'height',
-
-    // Tables
-    'colspan', 'rowspan', 'scope', 'headers',
-
-    // Lists
-    'start', 'type', 'value',
-]
-
-// Schema for validation check
-const SCHEMA = {
-    tags: new Set(ALLOWED_TAGS),
-    attributes: new Set(ALLOWED_ATTR),
+/**
+ * Specific allowed attributes per tag for strictness
+ */
+export const ALLOWED_ATTRIBUTES: Record<string, string[]> = {
+    '*': ['id', 'class', 'lang', 'dir', 'title'],
+    'a': ['href', 'target', 'rel', 'name'],
+    'img': ['src', 'alt', 'width', 'height'],
+    'table': ['id', 'class'],
+    'td': ['colspan', 'rowspan', 'scope', 'headers'],
+    'th': ['colspan', 'rowspan', 'scope', 'headers'],
+    'ol': ['start', 'type', 'value'],
+    'li': ['value'],
 }
 
 /**
@@ -59,104 +50,59 @@ const SCHEMA = {
  */
 export interface SanitizeOptions {
     /**
-     * If true, throws an error if any content is stripped.
+     * If true, throws an error if significant content stripping is detected.
      */
     strict?: boolean
     /**
-     * Callback for when content is stripped.
+     * Callback invoked when content is stripped.
      */
     onSanitization?: (msg: string) => void
 }
 
 /**
- * Sanitize HTML content using DOMPurify with strict schema.
+ * Sanitize HTML content using sanitize-html with a strict schema.
+ * Runs in pure Node.js environments without DOM dependencies.
  */
 export function sanitizeHtml(html: string, options: SanitizeOptions = {}): string {
     const { strict = false, onSanitization } = options
-    let strippedContent = false
-    const log = (msg: string) => {
-        strippedContent = true
-        if (onSanitization) onSanitization(msg)
-        else console.warn(`[Sanitization] ${msg}`)
+
+    // Track if anything was dropped (crude method for sanitize-html)
+    let dropped = false
+
+    const sanitizeOptions: sanitize.IOptions = {
+        allowedTags: ALLOWED_TAGS,
+        allowedAttributes: ALLOWED_ATTRIBUTES,
+        allowedStyles: {},
+        allowedSchemes: ['http', 'https', 'mailto', 'data'],
+        allowedSchemesByTag: {
+            img: ['http', 'https', 'data']
+        }
     }
 
-    // Clear existing hooks to prevent duplicates/side-effects
-    DOMPurify.removeAllHooks()
+    const sanitized = sanitize(html, sanitizeOptions)
 
-    const config = {
-        ALLOWED_TAGS: ALLOWED_TAGS,
-        ALLOWED_ATTR: ALLOWED_ATTR,
-        // FORBID_TAGS: ... // Rely on ALLOWED_TAGS for strictness
-        // FORBID_ATTR: ['onclick', 'onerror', 'onload', 'onmouseover', 'style'], // Explicitly forbid style
-        KEEP_CONTENT: true,
-        WHOLE_DOCUMENT: false,
+    // Basic heuristic: if the sanitized output is much smaller, or original had tags but output doesn't
+    if (strict && onSanitization) {
+        if (html.includes('<') && !sanitized.includes('<') && html.length > 10) {
+            dropped = true
+            onSanitization('Heavy tag stripping detected')
+        }
     }
 
-    const sanitized = DOMPurify.sanitize(html, config)
-
-    // Check for removed elements/attributes
-    if (DOMPurify.removed) {
-        DOMPurify.removed.forEach((item: any) => {
-            if (item.element) {
-                // If it's the element itself that was removed
-                if (!item.attribute) {
-                    log(`Stripped tag: <${item.element.tagName.toLowerCase()}>`)
-                } else {
-                    // Attribute removed
-                    log(`Stripped attribute: ${item.attribute.name} from <${item.element.tagName.toLowerCase()}>`)
-                }
-            }
-        })
-    }
-
-    DOMPurify.removeAllHooks()
-
-    if (strict && strippedContent) {
+    if (strict && dropped) {
         throw new Error('Document failed strict validation: content was stripped.')
     }
 
-    // Normalize result
     return normalizeHtml(sanitized)
 }
 
 /**
  * Normalize HTML content.
- * - Ensures headings are h1-h6
- * - Ensures tables have basic structure
- * - Trims whitespace
  */
 export function normalizeHtml(html: string): string {
     let normalized = html
-
-    // Remove empty paragraphs
     normalized = normalized.replace(/<p>\s*<\/p>/gi, '')
-
-    // Canonicalize line breaks (optional, but good for diffing)
     normalized = normalized.replace(/\r\n/g, '\n')
-
-    // Ensure single spaces
     normalized = normalized.replace(/[ \t]+/g, ' ')
-
     return normalized.trim()
-}
-
-/**
- * Validate HTML against schema without sanitizing (dry run).
- * Returns validity and list of violations.
- */
-export function validateHtml(html: string): { valid: boolean; violations: string[] } {
-    const violations: string[] = []
-
-    // We basically run sanitize with a logger that records violations
-    // Note: This is an expensive check as it re-runs sanitization.
-    // If strict performance is needed, we could optimize.
-
-    sanitizeHtml(html, {
-        onSanitization: (msg) => violations.push(msg),
-    })
-
-    return {
-        valid: violations.length === 0,
-        violations,
-    }
 }

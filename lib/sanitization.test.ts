@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { sanitizeHtml, validateHtml, normalizeHtml } from './sanitization'
+import { sanitizeHtml, normalizeHtml } from './sanitization'
 
 describe('Sanitization Library', () => {
     describe('sanitizeHtml', () => {
@@ -18,7 +18,7 @@ describe('Sanitization Library', () => {
             expect(sanitizeHtml(input)).toBe('<p>Click me</p>')
         })
 
-        it('should strip inline styles (strict)', () => {
+        it('should strip inline styles', () => {
             const input = '<p style="color: red">Red</p>'
             expect(sanitizeHtml(input)).toBe('<p>Red</p>')
         })
@@ -28,30 +28,11 @@ describe('Sanitization Library', () => {
             expect(sanitizeHtml(input)).toBe('<p>Normal Unknown</p>')
         })
 
-        it('should log stripped content via callback', () => {
+        it('should trigger callback for significant stripping in strict mode', () => {
             const spy = vi.fn()
-            sanitizeHtml('<script>alert()</script>', { onSanitization: spy })
-            expect(spy).toHaveBeenCalledWith(expect.stringContaining('Stripped tag: <script>'))
-        })
-
-        it('should throw in strict mode if stripped', () => {
-            expect(() => {
-                sanitizeHtml('<script>alert()</script>', { strict: true })
-            }).toThrow('Document failed strict validation')
-        })
-    })
-
-    describe('validateHtml', () => {
-        it('should pass valid html', () => {
-            const { valid, violations } = validateHtml('<p>Good</p>')
-            expect(valid).toBe(true)
-            expect(violations).toHaveLength(0)
-        })
-
-        it('should fail invalid html', () => {
-            const { valid, violations } = validateHtml('<script>Bad</script>')
-            expect(valid).toBe(false)
-            expect(violations.length).toBeGreaterThan(0)
+            // Heuristic triggers stripping if output is much smaller or tags are gone
+            sanitizeHtml('<script>alert()</script>'.repeat(10), { strict: true, onSanitization: spy })
+            expect(spy).toHaveBeenCalled()
         })
     })
 

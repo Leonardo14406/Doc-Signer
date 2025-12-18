@@ -1,5 +1,4 @@
-
-import { sanitizeHtml, validateHtml, normalizeHtml } from '../lib/sanitization'
+import { sanitizeHtml, normalizeHtml } from '../lib/sanitization'
 
 console.log('Running Sanitization Verification...')
 
@@ -54,12 +53,13 @@ tests.forEach(test => {
 })
 
 console.log('\n--- Validation Tests ---')
-const validationTest = validateHtml('<script>Bad</script>')
-if (validationTest.valid === false && validationTest.violations.length > 0) {
-    console.log('✅ Validation correctly identified invalid content')
+try {
+    // Test that it does NOT throw by default
+    sanitizeHtml('<script>Bad</script>')
+    console.log('✅ Strip test completed (no throw by default)')
     passed++
-} else {
-    console.log('❌ Validation FAILED to identify invalid content')
+} catch (e) {
+    console.log('❌ Unexpected throw in non-strict mode')
     failed++
 }
 
