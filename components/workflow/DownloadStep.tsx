@@ -9,7 +9,7 @@
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Download, RotateCcw, CheckCircle2 } from 'lucide-react'
-import { downloadPdf, getOutputFilename } from '@/lib/utils'
+import { getOutputFilename } from '@/lib/utils/file'
 
 // =============================================================================
 // Types
@@ -17,7 +17,7 @@ import { downloadPdf, getOutputFilename } from '@/lib/utils'
 
 interface DownloadStepProps {
     filename: string
-    signedPdfBytes: Uint8Array
+    signedPdfId: string
     onStartOver: () => void
 }
 
@@ -27,12 +27,12 @@ interface DownloadStepProps {
 
 export function DownloadStep({
     filename,
-    signedPdfBytes,
+    signedPdfId,
     onStartOver,
 }: DownloadStepProps) {
     const handleDownload = () => {
         const outputFilename = getOutputFilename(filename, '_signed')
-        downloadPdf(signedPdfBytes, outputFilename)
+        window.location.href = `/api/download/${signedPdfId}?filename=${encodeURIComponent(outputFilename)}`
     }
 
     return (

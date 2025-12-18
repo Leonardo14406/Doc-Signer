@@ -1,13 +1,14 @@
 /**
  * PDF Generation Hook
  * 
- * Handles HTML to PDF conversion using server-side Puppeteer.
+ * Handles HTML to PDF conversion using server-side Playwright.
  */
 
 'use client'
 
 import { useState, useCallback } from 'react'
 import { generatePdfAction } from '@/app/actions/generate-pdf'
+import { toast } from 'sonner'
 import type { PdfGenerationOptions } from '@/lib/types'
 
 // =============================================================================
@@ -56,6 +57,7 @@ export function usePdfGeneration(): UsePdfGenerationReturn {
             } catch (err) {
                 const errorMessage = err instanceof Error ? err.message : 'Failed to generate PDF'
                 setError(errorMessage)
+                toast.error('Generation Failed', { description: errorMessage })
                 return null
             } finally {
                 setIsGenerating(false)

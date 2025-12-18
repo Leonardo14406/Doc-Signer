@@ -37,8 +37,8 @@ const SEMANTIC_STYLE_MAP = [
     "p[style-name='Heading 5'] => h5:fresh",
     "p[style-name='Heading 6'] => h6:fresh",
 
-    // Lists - map to semantic list elements
-    "p[style-name='List Paragraph'] => li:fresh",
+    // Lists - Mammoth handles numbering/bullets automatically
+    // We avoid mapping simple 'List Paragraph' style to li to prevent invalid loose li tags
 
     // Tables are handled automatically by mammoth
 
@@ -110,7 +110,7 @@ export interface DocumentParserService {
     /**
      * Sanitize HTML content
      */
-    sanitizeHtml(html: string): string
+    sanitizeHtml(html: string): Promise<string>
 }
 
 // =============================================================================
@@ -158,8 +158,8 @@ export function createDocumentParser(): DocumentParserService {
             return null
         },
 
-        sanitizeHtml(html: string): string {
-            return sanitizeHtml(html, {
+        async sanitizeHtml(html: string): Promise<string> {
+            return await sanitizeHtml(html, {
                 onSanitization: (msg) => console.warn(`[DocumentParser] ${msg}`)
             })
         },
@@ -197,8 +197,11 @@ export function createDocumentParser(): DocumentParserService {
                 ]
 
                 // Convert DOCX to HTML
+                // Ensure we use a Node Buffer for stability in server environment
+                const buffer = Buffer.from(file)
+
                 const result = await mammoth.convertToHtml(
-                    { arrayBuffer: file },
+                    { buffer },
                     {
                         styleMap,
                         // Convert images to inline base64 with explicit typing and safe casting
@@ -225,7 +228,7 @@ export function createDocumentParser(): DocumentParserService {
                 }
 
                 // Sanitize the HTML immediately
-                const sanitizedHtml = this.sanitizeHtml(result.value)
+                const sanitizedHtml = await this.sanitizeHtml(result.value)
 
                 // Build metadata
                 const metadata: DocumentMetadata = {
@@ -248,6 +251,8 @@ export function createDocumentParser(): DocumentParserService {
 
                 return { success: true, data: documentContent }
             } catch (error) {
+                console.error('Mammoth Parse Error:', error)
+
                 // Handle specific mammoth errors
                 if (error instanceof Error) {
                     if (error.message.includes('Could not find file')) {

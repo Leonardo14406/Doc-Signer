@@ -19,9 +19,9 @@ import { useSignature } from '@/hooks'
 
 interface SignStepProps {
     filename: string
-    pdfBytes: Uint8Array
+    pdfId: string
     onSignatureChange: (hasSignature: boolean) => void
-    onComplete: (signedPdfBytes: Uint8Array) => void
+    onComplete: (signedPdfId: string) => void
 }
 
 // =============================================================================
@@ -30,7 +30,7 @@ interface SignStepProps {
 
 export function SignStep({
     filename,
-    pdfBytes,
+    pdfId,
     onSignatureChange,
     onComplete,
 }: SignStepProps) {
@@ -45,9 +45,9 @@ export function SignStep({
     } = useSignature()
 
     const handleComplete = async () => {
-        const signedPdf = await embedSignatures(pdfBytes)
-        if (signedPdf) {
-            onComplete(signedPdf)
+        const signedPdfId = await embedSignatures(pdfId)
+        if (signedPdfId) {
+            onComplete(signedPdfId)
         }
     }
 

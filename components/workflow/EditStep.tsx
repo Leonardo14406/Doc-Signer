@@ -24,7 +24,7 @@ interface EditStepProps {
     filename: string
     initialHtml: string
     onContentChange: (htmlContent: string) => void
-    onContinue: (pdfBytes: Uint8Array) => void
+    onContinue: (pdfId: string) => void
     onCancel: () => void
 }
 
@@ -44,10 +44,10 @@ export function EditStep({
     const handleContinue = async () => {
         // Get current HTML content from editor context
         // For now, using initialHtml as placeholder
-        const pdfBytes = await generate(initialHtml)
+        const pdfId = await generate(initialHtml)
 
-        if (pdfBytes) {
-            onContinue(pdfBytes)
+        if (pdfId) {
+            onContinue(pdfId)
         }
     }
 

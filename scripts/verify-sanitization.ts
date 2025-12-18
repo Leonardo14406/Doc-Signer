@@ -30,39 +30,46 @@ const tests = [
     }
 ]
 
-let passed = 0
-let failed = 0
+async function runTests() {
+    let passed = 0
+    let failed = 0
 
-tests.forEach(test => {
-    try {
-        const result = sanitizeHtml(test.input)
-        if (result === test.expected) {
-            console.log(`✅ ${test.name}`)
-            passed++
-        } else {
-            console.log(`❌ ${test.name}`)
-            console.log(`   Input:    ${test.input}`)
-            console.log(`   Expected: ${test.expected}`)
-            console.log(`   Actual:   ${result}`)
+    for (const test of tests) {
+        try {
+            const result = await sanitizeHtml(test.input)
+            if (result === test.expected) {
+                console.log(`✅ ${test.name}`)
+                passed++
+            } else {
+                console.log(`❌ ${test.name}`)
+                console.log(`   Input:    ${test.input}`)
+                console.log(`   Expected: ${test.expected}`)
+                console.log(`   Actual:   ${result}`)
+                failed++
+            }
+        } catch (e) {
+            console.log(`❌ ${test.name} - Exception: ${e}`)
             failed++
         }
+    }
+
+    console.log('\n--- Validation Tests ---')
+    try {
+        // Test that it does NOT throw by default
+        sanitizeHtml('<script>Bad</script>')
+        console.log('✅ Strip test completed (no throw by default)')
+        passed++
     } catch (e) {
-        console.log(`❌ ${test.name} - Exception: ${e}`)
+        console.log('❌ Unexpected throw in non-strict mode')
         failed++
     }
-})
 
-console.log('\n--- Validation Tests ---')
-try {
-    // Test that it does NOT throw by default
-    sanitizeHtml('<script>Bad</script>')
-    console.log('✅ Strip test completed (no throw by default)')
-    passed++
-} catch (e) {
-    console.log('❌ Unexpected throw in non-strict mode')
-    failed++
+    console.log(`\nResults: ${passed} passed, ${failed} failed`)
+
+    if (failed > 0) process.exit(1)
 }
 
-console.log(`\nResults: ${passed} passed, ${failed} failed`)
-
-if (failed > 0) process.exit(1)
+runTests().catch(err => {
+    console.error('Final failure:', err)
+    process.exit(1)
+})

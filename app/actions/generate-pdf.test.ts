@@ -3,8 +3,8 @@ import { generatePdfAction } from './generate-pdf'
 import { readFile } from '@/lib/storage'
 
 describe('generatePdfAction', () => {
-    // We treat this as an integration test using the real Puppeteer instance.
-    // Ensure Puppeteer is installed and environment handles it.
+    // We treat this as an integration test using the real Playwright instance.
+    // Ensure Playwright is installed and environment handles it.
 
     it('should generate a valid PDF from simple HTML', async () => {
         const html = '<h1>Hello World</h1><p>Test content</p>'

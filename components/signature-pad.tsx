@@ -1,16 +1,29 @@
 "use client"
 
-import type React from "react"
+/**
+ * Signature Pad Component
+ * 
+ * Multi-page PDF viewer with signature/drawing overlay.
+ * Uses hooks for signature embedding - no business logic embedded.
+ */
 
+import type React from "react"
 import { useRef, useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { RotateCcw, Check, Pen } from "lucide-react"
+import { RotateCcw, Check, Pen, AlertCircle } from "lucide-react"
 import { Spinner } from "@/components/ui/spinner"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useSignature } from "@/hooks"
+import DocumentScaler from "@/components/ui/document-scaler"
+
+// =============================================================================
+// Types
+// =============================================================================
 
 interface SignaturePadProps {
-  pdfBytes: Uint8Array
-  onSignatureComplete: (signedPdf: Uint8Array) => void
+  pdfId: string
+  onSignatureComplete: (signedPdfId: string) => void
 }
 
 interface PageData {
@@ -19,28 +32,65 @@ interface PageData {
   height: number
 }
 
-export default function SignaturePad({ pdfBytes, onSignatureComplete }: SignaturePadProps) {
+// =============================================================================
+// Component
+// =============================================================================
+
+export default function SignaturePad({ pdfId, onSignatureComplete }: SignaturePadProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const pdfCanvasRefs = useRef<Map<number, HTMLCanvasElement>>(new Map())
-  const signatureCanvasRefs = useRef<Map<number, HTMLCanvasElement>>(new Map())
 
   const [isDrawing, setIsDrawing] = useState(false)
-  const [hasSignature, setHasSignature] = useState(false)
-  const [isProcessing, setIsProcessing] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [pages, setPages] = useState<PageData[]>([])
   const [activePageNum, setActivePageNum] = useState<number | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const scale = 1.5
   const pdfDocRef = useRef<any>(null)
 
-  // Render all PDF pages
-  useEffect(() => {
-    renderAllPages()
-  }, [pdfBytes])
+  // Use the signature hook for all signing logic
+  const {
+    canvasRefs: signatureCanvasRefs,
+    hasSignature,
+    setHasSignature,
+    clearAll,
+    embedSignatures,
+    isEmbedding,
+    error: signError
+  } = useSignature()
 
-  const renderAllPages = async () => {
+  // =========================================================================
+  // PDF Loading
+  // =========================================================================
+
+  // Fetch PDF from server and render
+  useEffect(() => {
+    loadPdf()
+  }, [pdfId])
+
+  const loadPdf = async () => {
     setIsLoading(true)
+    setLoadError(null)
+
+    try {
+      // Fetch PDF from download API
+      const response = await fetch(`/api/download/${pdfId}`)
+      if (!response.ok) {
+        throw new Error('Failed to load PDF')
+      }
+
+      const pdfBytes = await response.arrayBuffer()
+      await renderAllPages(new Uint8Array(pdfBytes))
+    } catch (error) {
+      console.error('Error loading PDF:', error)
+      setLoadError(error instanceof Error ? error.message : 'Failed to load PDF')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const renderAllPages = async (pdfBytes: Uint8Array) => {
     try {
       const pdfjsLib = await import("pdfjs-dist")
       pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
@@ -50,11 +100,9 @@ export default function SignaturePad({ pdfBytes, onSignatureComplete }: Signatur
       pdfDocRef.current = pdf
 
       const pageDataList: PageData[] = []
-
       for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
         const page = await pdf.getPage(pageNum)
         const viewport = page.getViewport({ scale })
-
         pageDataList.push({
           pageNum,
           width: viewport.width,
@@ -64,20 +112,21 @@ export default function SignaturePad({ pdfBytes, onSignatureComplete }: Signatur
 
       setPages(pageDataList)
     } catch (error) {
-      console.error("Error loading PDF:", error)
-    } finally {
-      setIsLoading(false)
+      console.error("Error rendering PDF:", error)
+      setLoadError('Failed to render PDF pages')
     }
   }
 
-  // Render individual page when canvas is available
+  // =========================================================================
+  // Page Rendering
+  // =========================================================================
+
   const renderPage = useCallback(async (pageNum: number, canvas: HTMLCanvasElement) => {
     if (!pdfDocRef.current) return
 
     try {
       const page = await pdfDocRef.current.getPage(pageNum)
       const viewport = page.getViewport({ scale })
-
       const context = canvas.getContext("2d")
       if (!context) return
 
@@ -90,7 +139,6 @@ export default function SignaturePad({ pdfBytes, onSignatureComplete }: Signatur
     }
   }, [scale])
 
-  // Set PDF canvas ref and trigger render
   const setPdfCanvasRef = useCallback((pageNum: number) => (el: HTMLCanvasElement | null) => {
     if (el) {
       pdfCanvasRefs.current.set(pageNum, el)
@@ -98,16 +146,21 @@ export default function SignaturePad({ pdfBytes, onSignatureComplete }: Signatur
     }
   }, [renderPage])
 
-  // Set signature canvas ref and initialize
-  const setSignatureCanvasRef = useCallback((pageNum: number, width: number, height: number) => (el: HTMLCanvasElement | null) => {
+  // Ref callback now only stores the element reference
+  const setSignatureCanvasRef = useCallback((pageNum: number, _width: number, _height: number) => (el: HTMLCanvasElement | null) => {
     if (el) {
       signatureCanvasRefs.current.set(pageNum, el)
-      el.width = width
-      el.height = height
     }
-  }, [])
+  }, [signatureCanvasRefs])
 
-  const getCoordinates = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>, canvas: HTMLCanvasElement) => {
+  // =========================================================================
+  // Drawing Handlers
+  // =========================================================================
+
+  const getCoordinates = (
+    e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>,
+    canvas: HTMLCanvasElement
+  ) => {
     const rect = canvas.getBoundingClientRect()
     const scaleX = canvas.width / rect.width
     const scaleY = canvas.height / rect.height
@@ -124,7 +177,9 @@ export default function SignaturePad({ pdfBytes, onSignatureComplete }: Signatur
     }
   }
 
-  const startDrawing = (pageNum: number) => (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+  const startDrawing = (pageNum: number) => (
+    e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
+  ) => {
     const canvas = signatureCanvasRefs.current.get(pageNum)
     if (!canvas) return
 
@@ -139,7 +194,9 @@ export default function SignaturePad({ pdfBytes, onSignatureComplete }: Signatur
     ctx.moveTo(x, y)
   }
 
-  const draw = (pageNum: number) => (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+  const draw = (pageNum: number) => (
+    e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
+  ) => {
     if (!isDrawing || activePageNum !== pageNum) return
 
     const canvas = signatureCanvasRefs.current.get(pageNum)
@@ -165,74 +222,26 @@ export default function SignaturePad({ pdfBytes, onSignatureComplete }: Signatur
     setActivePageNum(null)
   }
 
-  const clearSignature = () => {
-    signatureCanvasRefs.current.forEach((canvas) => {
-      const ctx = canvas.getContext("2d")
-      if (ctx) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height)
-      }
-    })
-    setHasSignature(false)
-  }
+  // =========================================================================
+  // Signature Embedding
+  // =========================================================================
 
-  const embedSignature = async () => {
+  const handleComplete = async () => {
     if (!hasSignature) return
 
-    setIsProcessing(true)
-    try {
-      const { PDFDocument } = await import("pdf-lib")
+    // Use the hook to embed signatures via server action
+    const signedPdfId = await embedSignatures(pdfId)
 
-      const pdfDoc = await PDFDocument.load(pdfBytes.slice())
-      const pdfPages = pdfDoc.getPages()
-
-      for (const [pageNum, signatureCanvas] of signatureCanvasRefs.current) {
-        // Skip empty canvases
-        const ctx = signatureCanvas.getContext("2d")
-        if (!ctx) continue
-
-        const imageData = ctx.getImageData(
-          0,
-          0,
-          signatureCanvas.width,
-          signatureCanvas.height
-        )
-
-        // Check if canvas actually has drawing
-        const hasInk = imageData.data.some(alpha => alpha !== 0)
-        if (!hasInk) continue
-
-        const pngDataUrl = signatureCanvas.toDataURL("image/png")
-        const pngBytes = await fetch(pngDataUrl).then(r => r.arrayBuffer())
-
-        const pngImage = await pdfDoc.embedPng(pngBytes)
-
-        const page = pdfPages[pageNum - 1]
-        if (!page) continue
-
-        const { width: pageWidth, height: pageHeight } = page.getSize()
-
-        /**
-         * KEY FIX:
-         * pdf-lib origin is bottom-left
-         * Canvas origin is top-left
-         * So we must flip vertically
-         */
-        page.drawImage(pngImage, {
-          x: 0,
-          y: pageHeight - signatureCanvas.height,
-          width: pageWidth,
-          height: signatureCanvas.height,
-        })
-      }
-
-      const signedPdfBytes = await pdfDoc.save()
-      onSignatureComplete(signedPdfBytes)
-    } catch (error) {
-      console.error("Error embedding signature:", error)
-    } finally {
-      setIsProcessing(false)
+    if (signedPdfId) {
+      onSignatureComplete(signedPdfId)
     }
   }
+
+  // =========================================================================
+  // Render
+  // =========================================================================
+
+  const error = loadError || signError
 
   return (
     <Card className="flex flex-col overflow-visible bg-background border-border shadow-2xl">
@@ -252,16 +261,30 @@ export default function SignaturePad({ pdfBytes, onSignatureComplete }: Signatur
             </p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={clearSignature} className="gap-2" disabled={!hasSignature}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={clearAll}
+          className="gap-2"
+          disabled={!hasSignature || isEmbedding}
+        >
           <RotateCcw className="w-4 h-4" />
           Clear All
         </Button>
       </div>
 
+      {/* Error Display */}
+      {error && (
+        <Alert variant="destructive" className="mx-4 mt-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
       {/* Signing Area - All Pages */}
       <div
         ref={containerRef}
-        className="bg-gray-100 dark:bg-gray-900/50 flex flex-col items-center gap-8 p-8"
+        className="bg-gray-100 dark:bg-gray-900/50 flex flex-col items-center gap-8 p-4 md:p-8 overflow-auto"
       >
         {isLoading ? (
           <div className="flex flex-col items-center gap-4 py-12">
@@ -269,52 +292,58 @@ export default function SignaturePad({ pdfBytes, onSignatureComplete }: Signatur
             <p className="text-muted-foreground">Loading document...</p>
           </div>
         ) : (
-          pages.map((pageData) => (
-            <div key={pageData.pageNum} className="flex flex-col items-center gap-2">
-              {/* Page Number Label */}
-              <div className="text-sm text-muted-foreground font-medium">
-                Page {pageData.pageNum} of {pages.length}
-              </div>
+          <DocumentScaler targetWidth={pages[0]?.width || 794}>
+            <div className="flex flex-col items-center gap-8">
+              {pages.map((pageData) => (
+                <div key={pageData.pageNum} className="flex flex-col items-center gap-2">
+                  {/* Page Number Label */}
+                  <div className="text-sm text-muted-foreground font-medium">
+                    Page {pageData.pageNum} of {pages.length}
+                  </div>
 
-              {/* Page Container */}
-              <div
-                className="relative shadow-lg"
-                style={{
-                  width: pageData.width,
-                  height: pageData.height,
-                }}
-              >
-                {/* PDF Background */}
-                <canvas
-                  ref={setPdfCanvasRef(pageData.pageNum)}
-                  className="bg-white block"
-                />
+                  {/* Page Container */}
+                  <div
+                    className="relative shadow-lg"
+                    style={{
+                      width: pageData.width,
+                      height: pageData.height,
+                    }}
+                  >
+                    {/* PDF Background */}
+                    <canvas
+                      ref={setPdfCanvasRef(pageData.pageNum)}
+                      className="bg-white block"
+                    />
 
-                {/* Signature Overlay for this page */}
-                <canvas
-                  ref={setSignatureCanvasRef(pageData.pageNum, pageData.width, pageData.height)}
-                  onMouseDown={startDrawing(pageData.pageNum)}
-                  onMouseMove={draw(pageData.pageNum)}
-                  onMouseUp={stopDrawing}
-                  onMouseLeave={stopDrawing}
-                  onTouchStart={startDrawing(pageData.pageNum)}
-                  onTouchMove={draw(pageData.pageNum)}
-                  onTouchEnd={stopDrawing}
-                  className="absolute top-0 left-0 cursor-crosshair"
-                  style={{
-                    touchAction: "none",
-                    width: pageData.width,
-                    height: pageData.height,
-                  }}
-                />
-              </div>
+                    {/* Signature Overlay */}
+                    <canvas
+                      ref={setSignatureCanvasRef(pageData.pageNum, pageData.width, pageData.height)}
+                      width={pageData.width}
+                      height={pageData.height}
+                      onMouseDown={startDrawing(pageData.pageNum)}
+                      onMouseMove={draw(pageData.pageNum)}
+                      onMouseUp={stopDrawing}
+                      onMouseLeave={stopDrawing}
+                      onTouchStart={startDrawing(pageData.pageNum)}
+                      onTouchMove={draw(pageData.pageNum)}
+                      onTouchEnd={stopDrawing}
+                      className="absolute top-0 left-0 cursor-crosshair"
+                      style={{
+                        touchAction: "none",
+                        width: pageData.width,
+                        height: pageData.height,
+                      }}
+                    />
+                  </div>
 
-              {/* Page Separator */}
-              {pageData.pageNum < pages.length && (
-                <div className="w-full max-w-[210mm] border-t border-dashed border-muted-foreground/30 mt-4" />
-              )}
+                  {/* Page Separator */}
+                  {pageData.pageNum < pages.length && (
+                    <div className="w-full border-t border-dashed border-muted-foreground/30 mt-4" />
+                  )}
+                </div>
+              ))}
             </div>
-          ))
+          </DocumentScaler>
         )}
       </div>
 
@@ -325,11 +354,11 @@ export default function SignaturePad({ pdfBytes, onSignatureComplete }: Signatur
         </p>
         <Button
           size="lg"
-          onClick={embedSignature}
-          disabled={!hasSignature || isProcessing}
+          onClick={handleComplete}
+          disabled={!hasSignature || isEmbedding}
           className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
         >
-          {isProcessing ? (
+          {isEmbedding ? (
             <>
               <Spinner className="w-5 h-5" />
               Processing...

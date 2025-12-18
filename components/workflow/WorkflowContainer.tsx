@@ -70,10 +70,10 @@ export function WorkflowContainer() {
                                 payload: { htmlContent },
                             })
                         }}
-                        onContinue={(pdfBytes) => {
+                        onContinue={(pdfId) => {
                             dispatch({
                                 type: 'EDIT_COMPLETE',
-                                payload: { pdfBytes },
+                                payload: { pdfId },
                             })
                         }}
                         onCancel={() => {
@@ -85,17 +85,17 @@ export function WorkflowContainer() {
                 {state.step === 'sign' && (
                     <SignStep
                         filename={state.filename}
-                        pdfBytes={state.pdfBytes}
+                        pdfId={state.pdfId}
                         onSignatureChange={(hasSignature) => {
                             dispatch({
                                 type: 'SIGNATURE_UPDATE',
                                 payload: { hasSignature },
                             })
                         }}
-                        onComplete={(signedPdfBytes) => {
+                        onComplete={(signedPdfId) => {
                             dispatch({
                                 type: 'SIGN_COMPLETE',
-                                payload: { signedPdfBytes },
+                                payload: { signedPdfId },
                             })
                         }}
                     />
@@ -104,7 +104,7 @@ export function WorkflowContainer() {
                 {state.step === 'download' && (
                     <DownloadStep
                         filename={state.filename}
-                        signedPdfBytes={state.signedPdfBytes}
+                        signedPdfId={state.signedPdfId}
                         onStartOver={() => {
                             dispatch({ type: 'RESET' })
                         }}

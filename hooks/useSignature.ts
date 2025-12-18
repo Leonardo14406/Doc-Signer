@@ -8,6 +8,7 @@
 
 import { useState, useCallback, useRef } from 'react'
 import { signPdfAction } from '@/app/actions/sign-pdf'
+import { toast } from 'sonner'
 import { SignatureData } from '@/lib/types'
 
 // =============================================================================
@@ -96,6 +97,7 @@ export function useSignature(): UseSignatureReturn {
             } catch (err) {
                 const errorMessage = err instanceof Error ? err.message : 'Failed to embed signature'
                 setError(errorMessage)
+                toast.error('Signature Failed', { description: errorMessage })
                 return null
             } finally {
                 setIsEmbedding(false)

@@ -28,9 +28,21 @@ export async function saveFile(buffer: Buffer | Uint8Array, extension: string = 
     const id = uuidv4()
     const filename = `${id}.${extension}`
     const filepath = path.join(STORAGE_DIR, filename)
+    const tempFilepath = `${filepath}.tmp`
 
-    await fs.writeFile(filepath, buffer)
-    return id
+    try {
+        // Write to temp file first
+        await fs.writeFile(tempFilepath, buffer)
+        // Atomic rename to target file
+        await fs.rename(tempFilepath, filepath)
+        return id
+    } catch (error) {
+        // Cleanup temp file if error occurs
+        try {
+            await fs.unlink(tempFilepath)
+        } catch { /* ignore */ }
+        throw error
+    }
 }
 
 /**

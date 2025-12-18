@@ -73,7 +73,7 @@ export function downloadBlob(blob: Blob, filename: string): void {
  * Create a download for PDF bytes
  */
 export function downloadPdf(pdfBytes: Uint8Array, filename: string): void {
-    const blob = new Blob([pdfBytes], { type: 'application/pdf' })
+    const blob = new Blob([pdfBytes as any], { type: 'application/pdf' })
     downloadBlob(blob, filename)
 }
 

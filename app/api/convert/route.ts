@@ -15,14 +15,8 @@ import type { ApiError, ConvertResponse } from '@/lib/types'
 // Configuration
 // =============================================================================
 
-/**
- * Disable body parsing - we handle multipart/form-data manually
- */
-export const config = {
-    api: {
-        bodyParser: false,
-    },
-}
+// No Route Segment Config options needed for this route currently.
+// Next.js App Router handles partial body parsing automatically via Request methods.
 
 // =============================================================================
 // Types

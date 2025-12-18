@@ -63,7 +63,7 @@ export interface SanitizeOptions {
  * Sanitize HTML content using sanitize-html with a strict schema.
  * Runs in pure Node.js environments without DOM dependencies.
  */
-export function sanitizeHtml(html: string, options: SanitizeOptions = {}): string {
+export async function sanitizeHtml(html: string, options: SanitizeOptions = {}): Promise<string> {
     const { strict = false, onSanitization } = options
 
     // Track if anything was dropped (crude method for sanitize-html)
